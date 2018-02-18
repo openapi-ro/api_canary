@@ -28,12 +28,11 @@ defmodule ApiCanary.ResponseDiff do
 
     Accepted `option` values are:
 
-    - `[keys: :root_only_expected]` any additional fields in the response, which are not
+    - `[keys: only_expected]` any additional fields in the response, which are not
     in the expected keys set are dropped
-    - `[keys: :only_expected] ` **TODO:** Implement (recursive)
   """
   def make_diff(url,expected_response),
-    do: make_diff(url,expected_response, [keys: :root_only_expected])
+    do: make_diff(url,expected_response, [keys: :only_expected])
   def make_diff(url, expected_response, options) when is_bitstring(url),
     do: make_diff(%Request{url: url}, expected_response, options )
   def make_diff(request, expected_response, options) when is_bitstring(expected_response),
@@ -53,6 +52,7 @@ defmodule ApiCanary.ResponseDiff do
     cmp=
       case options[:keys] do
         :root_only_expected -> Map.take(resp, Map.keys(expected_response))
+        :only_expected->keep_only_keys(expected_response, resp)
         _->
           # just remove keys starting with "__" (e.g. __timing)
           resp
@@ -64,22 +64,8 @@ defmodule ApiCanary.ResponseDiff do
             end)
           |> Map.new()
       end
-    cmp=
-      case expected_response[:body] do
-        nil-> cmp
-
-        %{}->
-          if is_bitstring(cmp.body) do
-            case Poison.decode(cmp.body) do
-              {:ok, parsed} -> %{cmp| body: parsed}
-              _-> cmp
-            end
-          else
-            cmp
-          end
-        not_str when not is_bitstring(not_str) -> %{cmp| body: "#{not_str}"}
-        _str -> cmp
-      end
+    require IEx
+    IEx.pry
     JsonDiffEx.diff expected_response, cmp
   end
   def request(%Request{}=request) do
@@ -99,5 +85,65 @@ defmodule ApiCanary.ResponseDiff do
   def time(function) do
     {time, val} = :timer.tc function
     Map.put(val, :__time, time/1_000_000 )
+  end
+  @doc """
+    only keeps the expected elements.
+
+    In case the expected is a `list`, and that list is
+
+    - longer: the res list is appended with nil values to have the same length
+    - shorter ot equal:  res is returned unmodified
+  """
+  def keep_only_keys(exp,res) do
+    keep_only_keys(exp,res, try_string_to_json: true)
+  end
+  def keep_only_keys(exp,res, options) when is_list(exp) and is_list(res) do
+    len = length(exp)
+    case  length(res) do
+      res_len when res_len <= len ->
+        res
+      res_len when res_len > len ->
+        Enum.take(res, len)
+    end
+    Enum.zip(exp,res)
+    |> Enum.map(fn {exp, res} ->
+      keep_only_keys(exp,res,options)
+    end)
+  end
+  def keep_only_keys(exp,res,options) when is_map(exp) and is_map(res) do
+    res
+      |> Enum.filter(fn {key, val} ->
+          case to_string(key) do
+            "__"<>_-> false
+            _any-> true
+          end
+        end)
+      |> Enum.flat_map(fn {key, val} ->
+        if Map.has_key?(exp, key) do
+          [{key,
+            keep_only_keys(exp[key], res[key])
+          }]
+        else
+          []
+        end
+      end)
+      |> Map.new()
+  end
+  #ok, expecting something other than string, but comparing to string.
+  # if `try_string_to_json` option is true, try and decode the potential json inside the string
+  def keep_only_keys(exp,res, options) when (not is_bitstring(exp)) and is_bitstring(res) do
+    if options[:try_string_to_json] do
+      case Poison.decode(res) do
+        {:ok, parsed} -> keep_only_keys(exp,parsed,options)
+        _-> res
+      end
+    else
+      res
+    end
+
+  end
+  #this is the case for any type which is not a `map`  oe a `list`
+  def keep_only_keys(exp,res,options) do
+    res
   end
 end

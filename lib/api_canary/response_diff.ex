@@ -64,9 +64,7 @@ defmodule ApiCanary.ResponseDiff do
             end)
           |> Map.new()
       end
-    require IEx
-    IEx.pry
-    JsonDiffEx.diff expected_response, cmp
+    {JsonDiffEx.diff(expected_response, cmp), resp}
   end
   def request(%Request{}=request) do
     time fn ->

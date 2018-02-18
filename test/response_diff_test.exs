@@ -8,6 +8,27 @@ defmodule ResponseDiffTest do
     assert %{} = ResponseDiff.make_diff( "https://api.openapi.ro/health_check", "true")
   end
   @anaf_v3_url "https://webservicesp.anaf.ro/PlatitorTvaRest/api/v3/ws/tva"
+  
+  test "Anaf expected with split tva correct date" do
+    assert %{}==ResponseDiff.make_diff(
+      %Request{
+        url: @anaf_v3_url ,
+        method: :post,
+        headers: [{"Content-Type", "application/json"}],
+        body: """
+        [{"cui": 34892370, "data": "2017-09-29"}]
+        """,
+      },
+      %{#expected response
+        body: %{
+          "cod"=>200,
+          "found" => [
+            %{"dataInceputSplitTVA" => "2017-10-01"}
+          ]
+        }
+      }
+      )
+  end
   test "Anaf request with split tva" do
     ResponseDiff.make_diff(
       %Request{
@@ -15,12 +36,10 @@ defmodule ResponseDiffTest do
         method: :post,
         headers: [{"Content-Type", "application/json"}],
         body: """
-        [
-        {"cui": 34892370, "data": "2017-09-29"}
-        ]
-         """,
+        [{"cui": 34892370, "data": "2017-09-29"}]
+        """,
       },
-      %{
+      %{#expected response
         body: %{
           "cod" => 200,
           "found" => [

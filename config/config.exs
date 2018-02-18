@@ -2,6 +2,8 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
+
+
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
 # file won't be loaded nor affect the parent project. For this reason,
@@ -27,4 +29,35 @@ use Mix.Config
 # Configuration from the imported file will override the ones defined
 # here (which is why it is important to import them last).
 #
+config :logger,
+  level: :debug
+
+  config :api_canary, ApiCanary.Scheduler,
+  jobs: [
+    # Every minute
+    first_job: [
+      schedule: {:extended, "*/10"},
+      overlap: false,
+      task:     {ApiCanary.JsonCompareJob, :run, 
+                  [%{request: %{
+                                url: "https://webservicesp.anaf.ro/PlatitorTvaRest/api/v3/ws/tva",
+                                method: :post,
+                                headers: [{"Content-Type", "application/json"}],
+                                body: """
+                                [{"cui": 34892370, "data": "2017-09-29"}]
+                                """,
+                              },
+                    expected_response: %{
+                      body: %{
+                        "cod"=>200,
+                        "found" => [
+                          %{"dataInceputSplitTVA" => "2017-10-01"}
+                        ]
+                      }
+                    }
+                  }]
+
+                }
+    ]
+  ]
 #     import_config "#{Mix.env}.exs"

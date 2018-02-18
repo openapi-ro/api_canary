@@ -6,4 +6,7 @@ defmodule ApiCanary.Request do
     method: :get,
     options: []
   ]
+  def new(%{}=map_init) do
+    struct(__MODULE__, map_init)
+  end
 end

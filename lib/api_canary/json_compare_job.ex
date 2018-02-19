@@ -1,6 +1,7 @@
 defmodule ApiCanary.JsonCompareJob do
   alias ApiCanary.Request
-  defstruct request: nil,
+  defstruct name: nil,
+            request: nil,
             expected_response: nil,
             result: nil,
             execution_start: nil,

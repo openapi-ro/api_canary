@@ -39,7 +39,9 @@ config :logger,
       schedule: {:extended, "*/10"},
       overlap: false,
       task:     {ApiCanary.JsonCompareJob, :run, 
-                  [%{request: %{
+                  [%{
+                    name: :first_job,
+                    request: %{
                                 url: "https://webservicesp.anaf.ro/PlatitorTvaRest/api/v3/ws/tva",
                                 method: :post,
                                 headers: [{"Content-Type", "application/json"}],
